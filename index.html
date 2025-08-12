@@ -61,10 +61,82 @@
 </section>
 
 <script>
+
 const feeds = {
     bbc: "http://feeds.bbci.co.uk/news/rss.xml",
     aj: "https://www.aljazeera.com/xml/rss/all.xml",
 };
+
+const CACHE_KEY = 'minimalNewsCache';
+const CACHE_TIME_KEY = 'minimalNewsCacheTime';
+const UPDATE_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+
+function loadCachedOrFetch() {
+  const now = Date.now();
+  const lastFetch = parseInt(localStorage.getItem(CACHE_TIME_KEY), 10) || 0;
+  const cachedData = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+
+  if (now - lastFetch < UPDATE_INTERVAL && Object.keys(cachedData).length) {
+    // Use cached headlines
+    console.log('Using cached headlines');
+    displayHeadlines(cachedData);
+  } else {
+    // Fetch fresh headlines
+    console.log('Fetching fresh headlines');
+    fetchAllFeeds()
+      .then(data => {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, now.toString());
+        displayHeadlines(data);
+      })
+      .catch(() => {
+        // If fetch fails but cached data exists, use it as fallback
+        if (Object.keys(cachedData).length) {
+          displayHeadlines(cachedData);
+        } else {
+          // Show error message or empty state
+          console.error('Failed to fetch and no cache found');
+        }
+      });
+  }
+}
+
+function fetchAllFeeds() {
+  return Promise.all([
+    fetchFeed(feeds.bbc),
+    fetchFeed(feeds.aj),
+    fetchFeed(feeds.ft)
+  ]).then(([bbcData, ajData, ftData]) => ({
+    bbc: bbcData,
+    aj: ajData,
+    ft: ftData
+  }));
+}
+
+function fetchFeed(url) {
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+  return fetch(apiUrl).then(res => res.json()).then(data => data.items.slice(0, 5));
+}
+
+function displayHeadlines(data) {
+  ['bbc', 'aj', 'ft'].forEach(source => {
+    const ul = document.querySelector(`#${source} ul`);
+    ul.innerHTML = '';
+    (data[source] || []).forEach(item => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.textContent = item.title;
+      a.href = '#';
+      a.dataset.url = item.link;
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        openReader(item.title, item.link);
+      });
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+  });
+}
 
 function loadFeed(sectionId, url) {
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
@@ -84,11 +156,12 @@ function loadFeed(sectionId, url) {
         });
 }
 
-loadFeed("bbc", feeds.bbc);
-loadFeed("aj", feeds.aj);
+loadCachedOrFetch("bbc", feeds.bbc);
+loadCachedOrFetch("aj", feeds.aj);
 </script>
 
 </body>
 
 
 </html>
+
