@@ -1,49 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Minimal News Digest</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-    body {
-        font-family: sans-serif;
-        background: #f9f9f9;
-        margin: 0;
-        padding: 0;
-        line-height: 1.4;
-    }
-    h1 {
-        font-size: 1.2em;
-        text-align: center;
-        background: #333;
-        color: white;
-        padding: 10px;
-        margin: 0;
-    }
-    section {
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-    }
-    h2 {
-        font-size: 1em;
-        margin-top: 0;
-        color: #444;
-    }
-    ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    li {
-        margin-bottom: 6px;
-    }
-    a {
-        text-decoration: none;
-        color: #0066cc;
-    }
-    a:hover {
-        text-decoration: underline;
-    }
+  body {
+    font-family: sans-serif;
+    background: #f9f9f9;
+    margin: 0; padding: 0;
+    line-height: 1.4;
+  }
+  h1 {
+    font-size: 1.2em;
+    text-align: center;
+    background: #333;
+    color: white;
+    padding: 10px;
+    margin: 0;
+  }
+  section {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  h2 {
+    font-size: 1em;
+    margin-top: 0;
+    color: #444;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  li {
+    margin-bottom: 6px;
+  }
+  a {
+    text-decoration: none;
+    color: #0066cc;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
 </style>
 </head>
 <body>
@@ -51,20 +50,19 @@
 <h1>Today's Headlines</h1>
 
 <section id="bbc">
-    <h2>BBC News</h2>
-    <ul></ul>
+  <h2>BBC News</h2>
+  <ul></ul>
 </section>
 
 <section id="aj">
-    <h2>Al Jazeera</h2>
-    <ul></ul>
+  <h2>Al Jazeera</h2>
+  <ul></ul>
 </section>
 
 <script>
-
 const feeds = {
-    bbc: "http://feeds.bbci.co.uk/news/rss.xml",
-    aj: "https://www.aljazeera.com/xml/rss/all.xml",
+  bbc: "http://feeds.bbci.co.uk/news/rss.xml",
+  aj: "https://www.aljazeera.com/xml/rss/all.xml"
 };
 
 const CACHE_KEY = 'minimalNewsCache';
@@ -77,11 +75,9 @@ function loadCachedOrFetch() {
   const cachedData = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
 
   if (now - lastFetch < UPDATE_INTERVAL && Object.keys(cachedData).length) {
-    // Use cached headlines
     console.log('Using cached headlines');
     displayHeadlines(cachedData);
   } else {
-    // Fetch fresh headlines
     console.log('Fetching fresh headlines');
     fetchAllFeeds()
       .then(data => {
@@ -90,11 +86,9 @@ function loadCachedOrFetch() {
         displayHeadlines(data);
       })
       .catch(() => {
-        // If fetch fails but cached data exists, use it as fallback
         if (Object.keys(cachedData).length) {
           displayHeadlines(cachedData);
         } else {
-          // Show error message or empty state
           console.error('Failed to fetch and no cache found');
         }
       });
@@ -104,64 +98,39 @@ function loadCachedOrFetch() {
 function fetchAllFeeds() {
   return Promise.all([
     fetchFeed(feeds.bbc),
-    fetchFeed(feeds.aj),
-    fetchFeed(feeds.ft)
-  ]).then(([bbcData, ajData, ftData]) => ({
+    fetchFeed(feeds.aj)
+  ]).then(([bbcData, ajData]) => ({
     bbc: bbcData,
-    aj: ajData,
-    ft: ftData
+    aj: ajData
   }));
 }
 
 function fetchFeed(url) {
   const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
-  return fetch(apiUrl).then(res => res.json()).then(data => data.items.slice(0, 5));
+  return fetch(apiUrl)
+    .then(res => res.json())
+    .then(data => data.items.slice(0, 5))
+    .catch(() => []);
 }
 
 function displayHeadlines(data) {
-  ['bbc', 'aj', 'ft'].forEach(source => {
+  ['bbc', 'aj'].forEach(source => {
     const ul = document.querySelector(`#${source} ul`);
     ul.innerHTML = '';
     (data[source] || []).forEach(item => {
       const li = document.createElement('li');
       const a = document.createElement('a');
       a.textContent = item.title;
-      a.href = '#';
-      a.dataset.url = item.link;
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        openReader(item.title, item.link);
-      });
+      a.href = item.link;
+      a.target = '_blank';
       li.appendChild(a);
       ul.appendChild(li);
     });
   });
 }
 
-function loadFeed(sectionId, url) {
-    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
-    fetch(apiUrl)
-        .then(response => response.json())
-        .then(data => {
-            const list = document.querySelector(`#${sectionId} ul`);
-            list.innerHTML = "";
-            data.items.slice(0, 5).forEach(item => {
-                const li = document.createElement("li");
-                li.innerHTML = `<a href="${item.link}" target="_blank">${item.title}</a>`;
-                list.appendChild(li);
-            });
-        })
-        .catch(err => {
-            console.error(`Error loading ${sectionId} feed:`, err);
-        });
-}
-
-loadCachedOrFetch("bbc", feeds.bbc);
-loadCachedOrFetch("aj", feeds.aj);
+loadCachedOrFetch();
 </script>
 
 </body>
-
-
 </html>
-
