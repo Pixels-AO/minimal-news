@@ -67,32 +67,60 @@ const feeds = {
 
 const CACHE_KEY = 'minimalNewsCache';
 const CACHE_TIME_KEY = 'minimalNewsCacheTime';
-const UPDATE_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+
+// Fixed update times in hours (24-hour format)
+const UPDATE_TIMES = [9, 14, 20];
 
 function loadCachedOrFetch() {
-  const now = Date.now();
-  const lastFetch = parseInt(localStorage.getItem(CACHE_TIME_KEY), 10) || 0;
+  const now = new Date();
   const cachedData = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+  const lastFetch = parseInt(localStorage.getItem(CACHE_TIME_KEY), 10) || 0;
+  const lastFetchDate = new Date(lastFetch);
 
-  if (now - lastFetch < UPDATE_INTERVAL && Object.keys(cachedData).length) {
-    console.log('Using cached headlines');
+  if (!shouldUpdate(now, lastFetchDate) && Object.keys(cachedData).length) {
+    console.log("Using cached headlines");
     displayHeadlines(cachedData);
-  } else {
-    console.log('Fetching fresh headlines');
-    fetchAllFeeds()
-      .then(data => {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(CACHE_TIME_KEY, now.toString());
-        displayHeadlines(data);
-      })
-      .catch(() => {
-        if (Object.keys(cachedData).length) {
-          displayHeadlines(cachedData);
-        } else {
-          console.error('Failed to fetch and no cache found');
-        }
-      });
+    return;
   }
+
+  console.log("Fetching fresh headlines");
+  fetchAllFeeds()
+    .then(data => {
+      if (data.bbc.length && data.aj.length) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, now.getTime().toString());
+        displayHeadlines(data);
+      } else {
+        console.warn("Fetch returned empty data, using cache instead");
+        if (Object.keys(cachedData).length) displayHeadlines(cachedData);
+      }
+    })
+    .catch(err => {
+      console.error("Fetch failed:", err);
+      if (Object.keys(cachedData).length) displayHeadlines(cachedData);
+    });
+}
+
+function shouldUpdate(now, lastFetchDate) {
+  // Find the last scheduled update time before "now"
+  const lastScheduled = getLastScheduledTime(now);
+  return lastFetchDate.getTime() < lastScheduled.getTime();
+}
+
+function getLastScheduledTime(date) {
+  const today = new Date(date);
+  today.setMinutes(0, 0, 0);
+
+  for (let i = UPDATE_TIMES.length - 1; i >= 0; i--) {
+    if (date.getHours() >= UPDATE_TIMES[i]) {
+      today.setHours(UPDATE_TIMES[i]);
+      return today;
+    }
+  }
+  // If it's before the first scheduled time, go back to yesterday's last time
+  today.setDate(today.getDate() - 1);
+  today.setHours(UPDATE_TIMES[UPDATE_TIMES.length - 1]);
+  return today;
 }
 
 function fetchAllFeeds() {
@@ -109,7 +137,7 @@ function fetchFeed(url) {
   const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
   return fetch(apiUrl)
     .then(res => res.json())
-    .then(data => data.items.slice(0, 5))
+    .then(data => data.items ? data.items.slice(0, 5) : [])
     .catch(() => []);
 }
 
@@ -134,3 +162,4 @@ loadCachedOrFetch();
 
 </body>
 </html>
+
