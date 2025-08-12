@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Minimal News Digest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    body {
+        font-family: sans-serif;
+        background: #f9f9f9;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
+    }
+    h1 {
+        font-size: 1.2em;
+        text-align: center;
+        background: #333;
+        color: white;
+        padding: 10px;
+        margin: 0;
+    }
+    section {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+    h2 {
+        font-size: 1em;
+        margin-top: 0;
+        color: #444;
+    }
+    ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    li {
+        margin-bottom: 6px;
+    }
+    a {
+        text-decoration: none;
+        color: #0066cc;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+</style>
+</head>
+<body>
+
+<h1>Today's Headlines</h1>
+
+<section id="bbc">
+    <h2>BBC News</h2>
+    <ul></ul>
+</section>
+
+<section id="aj">
+    <h2>Al Jazeera</h2>
+    <ul></ul>
+</section>
+
+<script>
+const feeds = {
+    bbc: "http://feeds.bbci.co.uk/news/rss.xml",
+    aj: "https://www.aljazeera.com/xml/rss/all.xml",
+};
+
+function loadFeed(sectionId, url) {
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            const list = document.querySelector(`#${sectionId} ul`);
+            list.innerHTML = "";
+            data.items.slice(0, 5).forEach(item => {
+                const li = document.createElement("li");
+                li.innerHTML = `<a href="${item.link}" target="_blank">${item.title}</a>`;
+                list.appendChild(li);
+            });
+        })
+        .catch(err => {
+            console.error(`Error loading ${sectionId} feed:`, err);
+        });
+}
+
+loadFeed("bbc", feeds.bbc);
+loadFeed("aj", feeds.aj);
+</script>
+
+</body>
+</html>
